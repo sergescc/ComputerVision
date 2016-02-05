@@ -1,0 +1,14 @@
+To use xv for image display, use
+
+  (echo P5; echo xsize ysize; echo maxgraylevel; cat filename) | xv -
+
+where P5 is an xv flag
+      xsize, ysize denote the image size
+      maxgraylevel is the number of gray levels per pixel (eg, 255 for 1 byte)
+      filename is the name of the input file    
+
+For example, to display the 256x256 image test, where each pixel is an
+integer byte (1 byte/pixel), use the line
+  (echo P5; echo 256 256; echo 127; cat mri)|xv -
+
+

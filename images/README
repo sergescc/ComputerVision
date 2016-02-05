@@ -1,0 +1,23 @@
+TEST IMAGES
+
+Blobs   		- 254 rows by 256 columns; byte file;
+Lansat_Scene 		- 1024 rows by 1024 columns; byte file;
+Porsche  		- 342 rows by 546 columns; byte file;
+mri                     - 256 rows 256 columns; byte file;
+art7.dat		- 64 rows by 64 columns; byte file;
+blb1.dat		- 96 rows by 128 columns; byte file;
+brain8 			- MRI image of the human brain; 128 by 128 pixels; byte file;
+brain_unsigned_integer  128 rows by 128 columns; unsigned integer (16-bit) 
+
+cel4.dat 		- 113 rows by 116 columns; byte file;
+wdg2.dat		- 96 rows by 128 columns; byte file;
+wdg3.dat		- 96 rows by 128 columns; byte file;
+adapter.dat		- 60 rows by 60 columns; byte file;
+ball2.dat		- 60 rows by 60 columns; byte file;
+taperoll.dat		- 60 rows by 60 columns; byte file;
+
+Images in directory STUDENTS  -240 rows and 320 columns; byte files
+
+pen 			- 180 rows by 140 columns; byte file;
+coins 			- 220 rows by 221 columns; byte image;
+marker			- 200 rows by 160 columns; byte file;
