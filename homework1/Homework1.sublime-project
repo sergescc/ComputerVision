@@ -1,0 +1,28 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"settings":
+	{
+		"sublimegdb_commandline": "gdb --interpreter=mi -args ${project_path:bin/HW1}",
+		"sublimegdb_workingdir": "${folder:${project_path:.}}",
+    "sublimegdb_arguments": "../images/mri ./test 256 256"
+
+	},
+	"SublimeLinter":
+	{
+    "linters":
+    {
+        "clang": {
+            "extra_flags": "-Wall -I${project_folder}/inc",
+            "include_dirs": [
+                "${project_folder}/inc",
+                "${project_folder}/src"
+            ]
+        }
+    }
+	},
+}
