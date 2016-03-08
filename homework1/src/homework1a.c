@@ -1,3 +1,23 @@
+//////////////////////// homework1a.c /////////////////////////////////////////
+/*
+By:		Sergio Coronado
+				16.484 Computer Vision
+				Assignemnt #1
+				Part 1
+
+PURPOSE:
+	Program reads in an image specfied by user and outputs a file specified by user
+	that has reduced to a quarter of the original size by keeping even pixels and
+	discarding odd ones.
+
+USAGE:
+
+	HW1a <input-file> <output-file> <xSize> <ySize>
+
+*/
+
+///////////////////////// Includes /////////////////////////////////////////////
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,33 +25,50 @@
 #include "CursorCntl.h"
 #include <sys/wait.h>
 
+///////////////////////// Constant Definitions /////////////////////////////////
 
 #define SINGLE_BYTE 1
 #define HEADER_SIZE 20
 #define NUM_ARGS 3
 #define CMD_LENGTH 2
 
+/* Command String for launching XV
+	 Note:
+	 		For Runnign on School Lab this must be : /usr/X11R6/bin/xv
+*/
 
-static char *CMD = "/usr/bin/xv";
+//static char *CMD = "/usr/bin/xv";
+static char *CMD = "/usr/X11R6/bin/xv";
+
+///////////////////////// Function Prototypes //////////////////////////////////
+
+
+unsigned char ** ReadImage(
+ FILE * openedFile, unsigned xSize, unsigned ySize, unsigned * numRows);
+
+///////////////////////// Main /////////////////////////////////////////////////
 
 int main (int argc, char **  argv)
 {
-	unsigned char ** rows;
-	unsigned xSize;
-	unsigned ySize;
-	unsigned numRows;
-	unsigned char * zeroBuff;
-	pid_t xvFork;
-	char headerBuffer[HEADER_SIZE];
-	int bytesRead;
-	char * xvArgs[NUM_ARGS];
-	int status;
+	/////////////////////// Variables ////////////////////////////////////////////
+
+	unsigned char ** img;						//Matrix Holding Image Values
+	unsigned xSize;									//NUmber of horizontal pixels
+	unsigned ySize;									//NUmber of vertical pixels
+	unsigned numRows;								//rows Read in
+	unsigned char * zeroBuff;				//Buffer used to mask image
+	pid_t xvFork;										//pid for xv launched
+	char headerBuffer[HEADER_SIZE]; //array contianign header params for the image
+	char * xvArgs[NUM_ARGS];				//Arguments for XV
+	int status;											///Status variable
 
 
-	FILE * fileHandle;
-	FILE * outputFile;
+	FILE * openedFile;							//File to be read In
+	FILE * outputFile;							//file to be written to
 
-	int i, j;
+	int i, j;			//counter variables
+
+	/* Check correct n umber of arguments */
 
 	if (argc < 5)
 	{
@@ -39,51 +76,36 @@ int main (int argc, char **  argv)
 		exit (-1);
 	}
 
-	fileHandle = fopen(argv[1], "r");
+	/* Openede image File */
 
-	outputFile = fopen(argv[2], "w");
+	openedFile = fopen(argv[1], "r");
 
 	xSize = atoi(argv[3]);
 
 	ySize = atoi(argv[4]);
 
-	if (fileHandle == NULL)
+	if (openedFile == NULL)
 	{
 		printError("Error Could Not Open file\n");
 		exit (-1);
 	}
 
-	rows = (unsigned char **) malloc( sizeof(unsigned char *) * ySize);
+	img = (unsigned char **) malloc( sizeof(unsigned char *) * ySize);
 
 	zeroBuff = (unsigned char *) calloc (xSize/2, sizeof(unsigned char ));
 
-	numRows = 0;
-
 	printOK("Reading Image\n");
 
-	for ( i = 0; i < ySize; i ++)
-	{
-		rows[i] = (unsigned char *) malloc (sizeof(unsigned char) * xSize);
-		bytesRead = fread(rows[i], sizeof(unsigned char), xSize , fileHandle );
-		if (bytesRead < xSize)
-		{
-			if (feof(fileHandle))
-			{
-				printWarning("Reached Unexpected EOF Attemptin padding to size\n");
-					for (j = (bytesRead -1); j < xSize; j++)
-					{
-						rows[i][j] = 0;
-					}
-			}
-			else
-			{
-				printError("Error Reading File");
-			}
+	/* Read Image */
 
-		}
-		numRows++;
+	img = ReadImage(openedFile, xSize, ySize, &numRows);
 
-	}
+	/* Close input file and open output file */
+	/* Designed in this order in case user wishes to over-write image */
+
+	fclose(openedFile);
+
+	outputFile = fopen(argv[2], "w");
 
 	printOK("Building Image\n");
 
@@ -93,15 +115,18 @@ int main (int argc, char **  argv)
 
 	for ( i = 0; i < numRows; i++)
 	{
+		/* Write the first half of the row  as blank then write the second half
+			from the read-in image */
+
 		fwrite( zeroBuff, sizeof(unsigned char), xSize/2, outputFile);
 		for (j = xSize/2 ; j < xSize; j ++)
 		{
-			fwrite(&rows[i][j], sizeof(unsigned char), SINGLE_BYTE, outputFile);
+			fwrite(&img[i][j], sizeof(unsigned char), SINGLE_BYTE, outputFile);
 		}
 	}
 
 	fclose(outputFile);
-	fclose(fileHandle);
+
 
 	printOK("Image Built Starting XV\n");
 
@@ -127,4 +152,60 @@ int main (int argc, char **  argv)
 
 return 0;
 
+}
+
+
+///////////////////////// ReadImage() //////////////////////////////////////////]
+/*
+PURPOSE
+The read image function reads an image from a file of size specified in the
+parameters
+INPUT
+	FILE * openedFile : pointer to the file being opened must be opened priot to
+											call
+	unsigned xSize	`	:	number of columns in image to be read
+	unsigned ySize		: number of rows in image to be read
+	unsigned char *** img 	: Pointer to be set to the
+
+OUTPUT
+
+	unsigned char ** img 	: read-in matrix of pixel densities
+
+*/
+
+unsigned char ** ReadImage(
+ FILE * openedFile, unsigned xSize, unsigned ySize, unsigned * numRows)
+{
+	unsigned char ** img;			//pointer to hold the address of the image matrix
+	unsigned bytesRead;				// variable counting the bytes read per line
+	unsigned i, j;						// COUNTER VARIABLES
+
+	*(numRows) = 0;
+
+	img = (unsigned char **) malloc( sizeof(unsigned char *) * ySize);
+
+	for ( i = 0; i < ySize; i ++)
+	{
+		img[i] = (unsigned char *) malloc (sizeof(unsigned char) * xSize);
+		bytesRead = fread(img[i], sizeof(unsigned char), xSize , openedFile );
+		if (bytesRead < xSize)
+		{
+			if (feof(openedFile))
+			{
+				printWarning("Reached Unexpected EOF Attemptin padding to size\n");
+					for (j = (bytesRead -1); j < xSize; j++)
+					{
+						img[i][j] = 0;
+					}
+			}
+			else
+			{
+				printError("Error Reading File");
+			}
+
+		}
+		*(numRows) += 1;
+
+	}
+	return img;
 }

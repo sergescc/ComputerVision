@@ -1,0 +1,17 @@
+//////////////////////// Sergio Coronado Assignment 1 README /////////////////
+
+////BUILD
+
+ make sure theat both homework1a.c and homework1b.c have the variable CMD writte
+ to be : /usr/X11R6/bin/xv when runnign on the anaconda machines
+
+ $ make
+
+///RUN
+
+  bin/HW1a <input-file> <output-file> <xSize> <ySize>
+  bin/HW1a <input-file> <output-file> <xSize> <ySize>
+
+//Cleanup
+
+  $ make clean
