@@ -11,7 +11,7 @@
 #include "ImageProcessing.h"
 
 #define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
-#define NUM_THREADS 1
+#define NUM_THREADS 10
 #define HEADER_SIZE 20
 #define SINGLE_BYTE 1
 #define FILTER_ORDER 2
@@ -222,7 +222,7 @@ void * ProcessRows ( void * args)
                 }
                 else
                 {
-                    four1(&rows->data[row][0]-1 , rows->maxX, rows->cntl);
+                    four1(rows->data[row] - 1, rows->maxX, rows->cntl);
                 }
 
         }
@@ -241,8 +241,8 @@ void * ProcessColumns (void * args)
         while (1)
         {
                 pthread_mutex_lock(columns->counterLock);
-                column = *(columns->counter);
-                *(columns->counter) += 2;
+                column = *(columns->counter) << 1;
+                *(columns->counter) += 1;
                 pthread_mutex_unlock(columns->counterLock);
                 if ( column >= (columns->maxX << 1))
                 {
@@ -263,7 +263,7 @@ void * ProcessColumns (void * args)
                                 temp[i] = columns->data[row][column];
                                 temp[i +1] = columns->data[row][column + 1 ];
                         }
-                        four1(temp -1 , columns->maxY, columns->cntl);
+                        four1(temp - 1, columns->maxY, columns->cntl);
                         for (i = 0 ; i < n; i += 2)
                         {
                                 row = i >> 1;
@@ -285,12 +285,12 @@ float ** VectorizeImage (unsigned char ** img, unsigned  xSize, unsigned ySize)
         n = xSize << 1;
         for ( i = 0; i < ySize; i ++)
         {
-                newImg[i] = (float *) malloc (sizeof(float) * n);
-                for ( j = 0; j < n; j +=2)
-                {
-                        newImg[i][j] = img[i][j >> 1];
-                        newImg[i][j+1] = 0;
-                }
+            newImg[i] = (float *) malloc (sizeof(float) * n);
+            for ( j = 0; j < n; j +=2)
+            {
+                newImg[i][j] = img[i][j >> 1];
+                newImg[i][j+1] = 0;
+            }
         }
         return newImg;
 }
