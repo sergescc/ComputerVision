@@ -20,6 +20,7 @@ PURPOSE:
 #include <float.h>
 #include <limits.h>
 #include <string.h>
+#include <random>
 #include "CursorCntl.h"
 #include "ImageProcessing.h"
 
@@ -464,7 +465,7 @@ unsigned char ** NormalizeImage ( float ** img, unsigned xSize, unsigned ySize)
 }
 
 
-///////////////////////// Normalize Image ////////////////////////////////////////////////
+///////////////////////// Destroy Float  Image ////////////////////////////////////////////////
 /*
 PURPOSE:
 Destroy float image matrix
@@ -491,9 +492,40 @@ void DestroyFloatImage (float **  img, unsigned xSize, unsigned ySize)
                 }
                 free(img);
         }
+        img = NULL;
 }
 
-///////////////////////// Normalize Image ////////////////////////////////////////////////
+///////////////////////// Destroy Int  Image ////////////////////////////////////////////////
+/*
+PURPOSE:
+Destroy float image matrix
+
+INPUT:
+    float ** img:           Image to
+    unsigned xSize:         Horizontal Size
+    unsigned ySize:         Vertical Size
+
+OUTPUT:
+    void
+*/
+
+void DestroyIntImage (int **  img, unsigned xSize, unsigned ySize)
+{
+        unsigned i;
+        if ( img != NULL)
+        {
+                for (i = 0; i < ySize; i++)
+                {       if (img[i] != NULL)
+                        {
+                                free(img[i]);
+                        }
+                }
+                free(img);
+        }
+        img = NULL;
+}
+
+///////////////////////// Destroy Integer Image ////////////////////////////////////////////////
 /*
 PURPOSE:
 Destroy unsigned char  image matrix
@@ -521,7 +553,10 @@ void DestroyImage (unsigned char **  img, unsigned xSize, unsigned ySize)
                 }
                 free(img);
         }
+        img = NULL;
 }
+
+
 
 ///////////////////////// CenterRow ////////////////////////////////////////////////
 /*
@@ -751,17 +786,13 @@ unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
         unsigned i, j, n;
         int val;
         int min = INT_MAX;
-        float max = FLT_MIN;
-        float ** tempImg;
+        int max = INT_MIN;
         unsigned char ** newImg;
-        tempImg = (float ** ) malloc ( sizeof(float *) * ySize);
-        n = xSize << 1;
         for ( i = 0; i < ySize; i++)
         {
-                tempImg[i] = (float * ) malloc (sizeof(float) * xSize);
                 for ( j = 0; j < n ; j += 2)
                 {
-                        val = (tempImg[i][j >> 1] = sqrt(pow(img[i][j],2) + pow (img[i][j+1],2)));
+                        val = img[i][j];
                         if ( val > max)
                         {
                                 max = val;
@@ -778,11 +809,9 @@ unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
                 newImg[i] = (unsigned char * ) malloc (sizeof(unsigned char) * xSize);
                 for ( j =0 ; j < xSize; j++)
                 {
-                        val = newImg[i][j] = roundf((tempImg[i][j]-min) * (UCHAR_MAX / (max - min)));
+                        newImg[i][j] = roundf((img[i][j]-min) * (UCHAR_MAX / ((float)(max - min))));
                 }
         }
-
-        DestroyFloatImage( tempImg, xSize, ySize);
 
         return newImg;
 }
@@ -833,13 +862,15 @@ unsigned char ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySi
         }
     }
 
-    DestroyImage(buffered, (xSize + 2* SOBEL_BUFFER_SIZE), (ySize + 2 * SOBEL_BUFFER_SIZE));
+    DestroyIntImage(buffered, (xSize + 2* SOBEL_BUFFER_SIZE), (ySize + 2 * SOBEL_BUFFER_SIZE));
+    normalized = NormalizeIntImage(normalized, xSize, ySize);
+    DestroyIntImage(filtered, xSize, ySize)
 
-    return filtered;
+    return normalized;
 
 }
 
-void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, int threshold)
+void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned threshold)
 {
     unsigned i,j;
 
@@ -859,4 +890,21 @@ void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, int thre
     }
 }
 
-void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize);
+void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned char intensity)
+{
+    unsigned i,j;
+    float noiseMultiplier;
+
+    srandom(time(NULL));
+
+    for (i = 0 ; i < ySize; i++ )
+    {
+        for (j =0; j < xSize; j++)
+        {
+            noiseMultiplier = (float)(random() - (RAND_MAX / 2))/(RAND_MAX/2);
+            img[i][j] += roundf(noiseMultiplier * intensity);
+        }
+
+    }
+
+}
