@@ -1,4 +1,4 @@
-//////////////////////// homework2b.c /////////////////////////////////////////
+//////////////////////// homework2a.c /////////////////////////////////////////
 /*
 By:   Sergio Coronado
         16.484 Computer Vision
@@ -6,12 +6,12 @@ By:   Sergio Coronado
         Part 1
 
 PURPOSE:
-  Program reads in an imagecenteres the spectrumand perfomrs an FFT and a pplys a
-  buttersworth lowpass filer
+  Program reads in an image performs a FFT outputs the spectrum and then
+  performs the inverse FFT
 
 USAGE:
 
-  HW2b <input-file> <ospectrum-file> <filtered-file> < cutoff freq.> <xSize> <ySize>
+  HW2a <input-file> <ospectrum-file> <reverse-file> <xSize> <ySize>
 
 */
 
@@ -24,37 +24,32 @@ USAGE:
 
 ///////////////////////// Constants ////////////////////////////////////////////
 
-#define BUFFER_SIZE  50
-#define NUM_ARGS 7
-#define FFFT 1
-#define RFFT -1
 
-///////////////////////// Mian /////////////////////////////////////////////////
+#define NUM_ARGS 6
+
+
+///////////////////////// Main /////////////////////////////////////////////////
 
 
 int main ( int argc, char ** argv)
 {
-  unsigned char ** img;           //Matrix Holding Image Values
-  float ** vectoredImg;           // Matric holding vectored image values
-  unsigned char ** result;        // Matric holding normalized image to output
-  unsigned xSize;                 //NUmber of horizontal pixels
-  unsigned ySize;
-  unsigned nRows;
-  int cutOff;
-  char message[BUFFER_SIZE];
-
+  unsigned char ** img;           // Matrix Holding Original Image Values
+  float ** vectoredImg;           // Matrix holding vectorized image
+  unsigned char ** result;        // Matrix holiding Image to output
+  unsigned xSize;                 // NUmber of Horizontal pixels
+  unsigned ySize;                 // Number of Vertical Pixels
+  unsigned nRows;                 // Number of Rows Read in
 
   if (argc <  NUM_ARGS)
   {
-    printError("Usage: HW2a <inputFile> <spectrumOut> <filteredOut> <cutoff> <rows> <columns>\n");
+    printError("Usage: HW2a <inputFile> <spectrumOut> <reverseOut> <rows> <columns>\n");
     exit(0);
   }
 
-  cutOff = atoi(argv[4]);
 
-  xSize = atoi(argv[5]);
+  xSize = atoi(argv[4]);
 
-  ySize = atoi(argv[6]);
+  ySize = atoi(argv[5]);
 
   printOK("Reading Image \n");
 
@@ -74,10 +69,6 @@ int main ( int argc, char ** argv)
 
   vectoredImg = VectorizeImage( img, xSize, ySize);
 
-  printOK("Centering Spectrum\n");
-
-  CenterSpectrum(vectoredImg, xSize, ySize);
-
   printOK("Performing Fourier Transform \n");
 
   Fourier2D(vectoredImg , xSize, ySize, FFFT );
@@ -94,11 +85,6 @@ int main ( int argc, char ** argv)
 
   DestroyImage (result , xSize, ySize);
 
-  sprintf(message, "Applying Low Pass Filter Cutoff = %d\n", cutOff);
-  printOK(message);
-
-  ApplyLowPass(vectoredImg, xSize, ySize, cutOff);
-
   printOK("Performing Reverse Fourier \n");
 
   Fourier2D(vectoredImg, xSize, ySize, RFFT);
@@ -111,7 +97,7 @@ int main ( int argc, char ** argv)
 
   OutputImage(argv[3], result, xSize, ySize);
 
-  printOK ("cleanup\n");
+  printOK ("Cleanup\n");
 
   DestroyImage (result , xSize, ySize);
 
@@ -122,4 +108,3 @@ int main ( int argc, char ** argv)
   exit(0);
 
 }
-

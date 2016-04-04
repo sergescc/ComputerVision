@@ -1,0 +1,29 @@
+{
+	"SublimeLinter":
+	{
+		"linters":
+		{
+			"clang":
+			{
+				"extra_flags": "-Wall -I${project_folder}/inc",
+				"include_dirs":
+				[
+					"${project_folder}/inc",
+					"${project_folder}/src"
+				]
+			}
+		}
+	},
+	"folders":
+	[
+		{
+			"path": "/home/sergio/Documents/school/ComputerVision/homework2"
+		}
+	],
+	"settings":
+	{
+		"sublimegdb_arguments": "../images/Porsche ./test ./result 10 342 546",
+		"sublimegdb_commandline": "gdb --interpreter=mi -args ${project_path:bin/HW2b}",
+		"sublimegdb_workingdir": "${folder:${project_path:.}}"
+	}
+}

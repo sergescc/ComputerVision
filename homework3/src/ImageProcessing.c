@@ -30,10 +30,11 @@ PURPOSE:
 
 ///////////////////////// Constants ////////////////////////////////////////////
 
-#define NUM_THREADS 1      //Number thrad used for simultaneous image processing
+#define NUM_THREADS 10      //Number thrad used for simultaneous image processing
 #define HEADER_SIZE 20      // Size of BMP header buffer
 #define SINGLE_BYTE 1       // Singel Byte Lenght
 #define FILTER_ORDER 2      // Order of Butterworth Filter
+#define SOBEL_BUFFER_SIZE 1
 
 ///////////////////////// Function Protoypes  //////////////////////////////////
 
@@ -308,7 +309,7 @@ void * ProcessRows ( void * args)
                 }
                 else
                 {
-                    four1(rows->data[row], rows->maxX, rows->cntl);
+                    four1(rows->data[row] - 1, rows->maxX, rows->cntl);
                 }
 
         }
@@ -336,8 +337,6 @@ void * ProcessColumns (void * args)
 
         n = columns->maxY << 1;
 
-        temp = (float * ) malloc(sizeof(float) * n);
-
         while (1)
         {
                 pthread_mutex_lock(columns->counterLock);
@@ -346,30 +345,31 @@ void * ProcessColumns (void * args)
                 pthread_mutex_unlock(columns->counterLock);
                 if ( column >= (columns->maxX << 1))
                 {
-                        free(temp);
                         pthread_exit(0);
                 }
                 else
                 {
 
+                        temp = (float * ) malloc(sizeof(float) * n);
                         if (temp == NULL)
                         {
                             printError("Insuffificient Memory \n ");
                             exit(0);
                         }
-                        for (i = 0 ; i < n ; i += 2)
+                        for (i = 0 ; i < n; i += 2)
                         {
                                 row = i >> 1;
                                 temp[i] = columns->data[row][column];
                                 temp[i +1] = columns->data[row][column + 1 ];
                         }
                         four1(temp - 1, columns->maxY, columns->cntl);
-                        for (i = 0 ; i < n ; i += 2)
+                        for (i = 0 ; i < n; i += 2)
                         {
                                 row = i >> 1;
                                 columns->data[row][column] = temp[i];
                                 columns->data[row][column + 1] = temp[i + 1];
                         }
+                        free(temp);
                 }
 
         }
@@ -690,11 +690,10 @@ void * LFilterRow (void * args)
                 for ( column = 0 ; column < (rows->maxX << 1); column += 2)
                 {
                         u = row - rows->maxY/2.0;
-                        v = (column >> 1) - rows->maxX/2.0;
+                        v = column - rows->maxX/2.0;
                         f = sqrt(pow(u,2) + pow (v,2));
                         rows->data[row][column] *= (1 / (1 + pow((f/rows->cntl), 2 * FILTER_ORDER )));
                         rows->data[row][column + 1] *= (1/ (1 + pow((f/rows->cntl), 2 * FILTER_ORDER)));
-
 
                 }
 
@@ -746,3 +745,118 @@ void OutputImage ( char * fileName, unsigned char ** img, unsigned xSize, unsign
 
         fclose(outputFile);
 }
+
+unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
+{
+        unsigned i, j, n;
+        int val;
+        int min = INT_MAX;
+        float max = FLT_MIN;
+        float ** tempImg;
+        unsigned char ** newImg;
+        tempImg = (float ** ) malloc ( sizeof(float *) * ySize);
+        n = xSize << 1;
+        for ( i = 0; i < ySize; i++)
+        {
+                tempImg[i] = (float * ) malloc (sizeof(float) * xSize);
+                for ( j = 0; j < n ; j += 2)
+                {
+                        val = (tempImg[i][j >> 1] = sqrt(pow(img[i][j],2) + pow (img[i][j+1],2)));
+                        if ( val > max)
+                        {
+                                max = val;
+                        }
+                        else if (val < min)
+                        {
+                                min = val;
+                        }
+                }
+        }
+        newImg = (unsigned char **) malloc (sizeof(unsigned char *) * ySize);
+        for (i = 0; i < ySize; i ++)
+        {
+                newImg[i] = (unsigned char * ) malloc (sizeof(unsigned char) * xSize);
+                for ( j =0 ; j < xSize; j++)
+                {
+                        val = newImg[i][j] = roundf((tempImg[i][j]-min) * (UCHAR_MAX / (max - min)));
+                }
+        }
+
+        DestroyFloatImage( tempImg, xSize, ySize);
+
+        return newImg;
+}
+
+int ** AddBuffer ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned xBufferSize, unsigned yBufferSize)
+{
+    unsigned i,j;
+
+    int ** newImage;
+
+    newY = ySize
+
+    newImage =  (int ** ) malloc(sizeof(int *) * (ySize + (yBufferSize << 1)));
+
+    for ( i = 0; i < (ySize + (yBufferSize << 1)); i++)
+    {
+        newImage[i] = (int *) calloc(sizeof(int) * (xSize + (xBufferSize << 1)));
+        if ((i >= yBufferSize) && (i < (yBufferSize + ySize)))
+        {
+            memmove(&newImage[xBufferSize], img[i-yBufferSize], sizeof(int) * xSize);
+        }
+    }
+
+    return newImage;
+
+}
+
+unsigned char ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySize)
+{
+    unsigned i, j;
+    int ** filtered;
+    int ** buffered;
+    unsigned char ** normalized;
+
+    buffered = AddBuffer(img, xSize, ySize, SOBEL_BUFFER_SIZE, SOBEL_BUFFER_SIZE);
+    filtered = (int ** ) malloc (sizeof(int * )* ySize)
+
+    for(i = SOBEL_BUFFER_SIZE; i < ySize + SOBEL_BUFFER_SIZE; i ++)
+    {
+        filtered = (int *) malloc(sizeof(int) * xSize)
+
+        for (j = SOBEL_BUFFER_SIZE; j < xSize + SOBEL_BUFFER_SIZE; j++)
+        {
+            filtered[i][j] = buffered[i-1][j-1] + (2* buffered[i-1][j]) + buffered[i-1][j+1];
+            filtered[i][j] +=  (buffered[i+1][j-1] * -1) - (2 * buffered[i+1][j]) - buffered[i+1][j+1];
+            filtered[i][j] += buffered[i-1][j-1] + (2* buffered[i][j-1]) + buffered[i+1][j-1];
+            filtered[i][j] +=  (buffered[i-1][j+1] * -1) - (2 * buffered[i][j+1]) - buffered[i+1][j+1];
+        }
+    }
+
+    DestroyImage(buffered, (xSize + 2* SOBEL_BUFFER_SIZE), (ySize + 2 * SOBEL_BUFFER_SIZE));
+
+    return filtered;
+
+}
+
+void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, int threshold)
+{
+    unsigned i,j;
+
+    for ( i = 0; i < ySize; i++)
+    {
+        for (j = 0; j < xSize; j ++)
+        {
+            if (img[i][j] > threshold)
+            {
+                img[i][j] = 1
+            }
+            else
+            {
+                img[i][j] = 0
+            }
+        }
+    }
+}
+
+void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize);

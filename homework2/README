@@ -1,0 +1,19 @@
+//////////////////////// Sergio Coronado Assignment 2 README /////////////////
+
+////BUILD
+
+ $ make
+
+///RUN
+
+  NOTE: Program already add the bitmap header to the image there is no need to add a header to view
+        the image only need to run
+
+                 $ XV <image-file>
+
+  bin/HW2a <input-file> <spectrum output file> <reverse -fft output file> <xSize> <ySize>
+  bin/HW2b <input-file> <spectrum output file> < filtered output file> < cutoff freq.> <xSize> <ySize>
+
+//Cleanup
+
+  $ make clean
