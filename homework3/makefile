@@ -1,6 +1,6 @@
-PART1 = HW2a
+PART1 = HW3a
 
-PART2 = HW2b
+PART2 = HW3b
 
 CFLAGS = -g $(INCLUDE) -Wall -lm
 
@@ -10,9 +10,9 @@ LIBS = -pthread
 
 CC = gcc
 
-SOURCES1 = Homework2a.c CursorCntl.c ImageProcessing.c
+SOURCES1 = Homework3a.c CursorCntl.c ImageProcessing.c
 
-SOURCES2 = Homework2b.c CursorCntl.c ImageProcessing.c
+SOURCES2 = Homework3b.c CursorCntl.c ImageProcessing.c
 
 TARGETDIR = bin
 

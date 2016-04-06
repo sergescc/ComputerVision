@@ -26,6 +26,8 @@ USAGE:
 
 
 #define NUM_ARGS 6
+#define FFT 1
+#define RFFT -1
 
 
 ///////////////////////// Main /////////////////////////////////////////////////
@@ -34,22 +36,25 @@ USAGE:
 int main ( int argc, char ** argv)
 {
   unsigned char ** img;           // Matrix Holding Original Image Values
-  float ** vectoredImg;           // Matrix holding vectorized image
-  unsigned char ** result;        // Matrix holiding Image to output
+  unsigned char ** filteredImg;           // Matrix holding vectorized image
   unsigned xSize;                 // NUmber of Horizontal pixels
   unsigned ySize;                 // Number of Vertical Pixels
   unsigned nRows;                 // Number of Rows Read in
+  unsigned threshold;
 
   if (argc <  NUM_ARGS)
   {
-    printError("Usage: HW2a <inputFile> <spectrumOut> <reverseOut> <rows> <columns>\n");
+    printError("Usage: HW3a <inputFile> <Outputfile>  <columns> <rows> <threshold>\n");
     exit(0);
   }
 
 
-  xSize = atoi(argv[4]);
+  xSize = atoi(argv[3]);
 
-  ySize = atoi(argv[5]);
+  ySize = atoi(argv[4]);
+
+  threshold = atoi(argv[5]);
+
 
   printOK("Reading Image \n");
 
@@ -65,43 +70,20 @@ int main ( int argc, char ** argv)
     ySize = nRows;
   }
 
-  printOK("Vectorizing Image \n");
 
-  vectoredImg = VectorizeImage( img, xSize, ySize);
+  printOK("Applying Sobel\n");
 
-  printOK("Performing Fourier Transform \n");
+  filteredImg = ApplySobel(img, xSize, ySize);
 
-  Fourier2D(vectoredImg , xSize, ySize, FFFT );
+  printOK("Outputing Filtered Image \n");
 
-  printOK("Normalizing Image \n");
+  MakeBinary (filteredImg, xSize, ySize, threshold);
 
-  result = NormalizeImage(vectoredImg, xSize, ySize);
-
-  printOK("Outputing Spectrum Image \n");
-
-  OutputImage(argv[2], result, xSize, ySize);
-
-  printOK("Destroying Spectrum Image \n");
-
-  DestroyImage (result , xSize, ySize);
-
-  printOK("Performing Reverse Fourier \n");
-
-  Fourier2D(vectoredImg, xSize, ySize, RFFT);
-
-  printOK("Normalizing Image \n");
-
-  result = NormalizeImage(vectoredImg, xSize, ySize);
-
-  printOK("Outputing Reverse Image \n");
-
-  OutputImage(argv[3], result, xSize, ySize);
+  OutputImage(argv[2], filteredImg, xSize, ySize);
 
   printOK ("Cleanup\n");
 
-  DestroyImage (result , xSize, ySize);
-
-  DestroyFloatImage (vectoredImg , xSize, ySize);
+  DestroyImage (filteredImg , xSize, ySize);
 
   DestroyImage (img, xSize, ySize);
 

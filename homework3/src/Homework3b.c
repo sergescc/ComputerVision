@@ -25,7 +25,7 @@ USAGE:
 ///////////////////////// Constants ////////////////////////////////////////////
 
 
-#define NUM_ARGS 6
+#define NUM_ARGS 5
 
 
 ///////////////////////// Main /////////////////////////////////////////////////
@@ -33,8 +33,45 @@ USAGE:
 
 int main ( int argc, char ** argv)
 {
+	unsigned char ** img;
 
+	unsigned char ** sobel;
+					           // Matrix Holding Original Image Values
+  	unsigned xSize;                 // NUmber of Horizontal pixels
+  	unsigned ySize;
+  	unsigned tiers;                 // Number of Vertical Pixels
+ 
 
-  exit(0);
+  	if (argc <  NUM_ARGS)
+  	{
+    	printError("Usage: HW3b <Outputfile>  <columns> <rows> <tiers> \n");
+    	exit(0);
+  	}
+
+  	xSize = atoi(argv[2]);
+
+  	ySize = atoi(argv[3]);
+
+  	tiers = atoi(argv[4]);
+
+  	printOK("Creating  Image \n");
+
+  	img = MakeStandard(xSize, ySize, tiers);
+
+  	printOK("Applying Sobel");
+
+  	sobel = ApplySobel(img, xSize, ySize);
+
+  	printOK("Outputting Image \n");
+
+  	//MakeBinary(sobel, xSize, ySize, 30);
+
+  	OutputImage ( argv[1], img, xSize, ySize);
+
+  	printOK("Clean up\n");
+
+  	DestroyImage(img, xSize, ySize);
+
+	exit(0);
 
 }

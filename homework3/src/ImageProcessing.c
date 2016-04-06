@@ -20,7 +20,6 @@ PURPOSE:
 #include <float.h>
 #include <limits.h>
 #include <string.h>
-#include <random>
 #include "CursorCntl.h"
 #include "ImageProcessing.h"
 
@@ -36,6 +35,8 @@ PURPOSE:
 #define SINGLE_BYTE 1       // Singel Byte Lenght
 #define FILTER_ORDER 2      // Order of Butterworth Filter
 #define SOBEL_BUFFER_SIZE 1
+#define BACKGROUND_SEGMENTS 3
+#define SOBEL_BIAS 2
 
 ///////////////////////// Function Protoypes  //////////////////////////////////
 
@@ -783,14 +784,14 @@ void OutputImage ( char * fileName, unsigned char ** img, unsigned xSize, unsign
 
 unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
 {
-        unsigned i, j, n;
+        unsigned i, j;
         int val;
         int min = INT_MAX;
         int max = INT_MIN;
         unsigned char ** newImg;
         for ( i = 0; i < ySize; i++)
         {
-                for ( j = 0; j < n ; j += 2)
+                for ( j = 0; j < xSize ; j += 2)
                 {
                         val = img[i][j];
                         if ( val > max)
@@ -803,14 +804,17 @@ unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
                         }
                 }
         }
+
         newImg = (unsigned char **) malloc (sizeof(unsigned char *) * ySize);
         for (i = 0; i < ySize; i ++)
         {
-                newImg[i] = (unsigned char * ) malloc (sizeof(unsigned char) * xSize);
-                for ( j =0 ; j < xSize; j++)
-                {
-                        newImg[i][j] = roundf((img[i][j]-min) * (UCHAR_MAX / ((float)(max - min))));
-                }
+            newImg[i] = (unsigned char * ) malloc (sizeof(unsigned char) * xSize);
+            for ( j =0 ; j < xSize; j++)
+            {
+
+                newImg[i][j] = roundf((img[i][j] - min) * (UCHAR_MAX / ((float)(max-min))));
+
+            }
         }
 
         return newImg;
@@ -822,16 +826,18 @@ int ** AddBuffer ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigne
 
     int ** newImage;
 
-    newY = ySize
-
     newImage =  (int ** ) malloc(sizeof(int *) * (ySize + (yBufferSize << 1)));
 
     for ( i = 0; i < (ySize + (yBufferSize << 1)); i++)
     {
-        newImage[i] = (int *) calloc(sizeof(int) * (xSize + (xBufferSize << 1)));
+        newImage[i] = (int *) calloc((xSize + (xBufferSize << 1)) , sizeof(int));
+        if (newImage[i] == NULL) printError("Somethindg is Odd");
         if ((i >= yBufferSize) && (i < (yBufferSize + ySize)))
         {
-            memmove(&newImage[xBufferSize], img[i-yBufferSize], sizeof(int) * xSize);
+            for (j = xBufferSize; j < xSize+xBufferSize; j ++)
+            {
+                newImage[i][j] = img[i-yBufferSize][j-xBufferSize];
+            }
         }
     }
 
@@ -845,26 +851,28 @@ unsigned char ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySi
     int ** filtered;
     int ** buffered;
     unsigned char ** normalized;
+    int hor, vert;
 
     buffered = AddBuffer(img, xSize, ySize, SOBEL_BUFFER_SIZE, SOBEL_BUFFER_SIZE);
-    filtered = (int ** ) malloc (sizeof(int * )* ySize)
+    filtered = (int ** ) malloc (sizeof(int * )* ySize);
 
     for(i = SOBEL_BUFFER_SIZE; i < ySize + SOBEL_BUFFER_SIZE; i ++)
     {
-        filtered = (int *) malloc(sizeof(int) * xSize)
+        filtered[i -SOBEL_BUFFER_SIZE] = (int *) malloc(sizeof(int) * xSize);
 
         for (j = SOBEL_BUFFER_SIZE; j < xSize + SOBEL_BUFFER_SIZE; j++)
         {
-            filtered[i][j] = buffered[i-1][j-1] + (2* buffered[i-1][j]) + buffered[i-1][j+1];
-            filtered[i][j] +=  (buffered[i+1][j-1] * -1) - (2 * buffered[i+1][j]) - buffered[i+1][j+1];
-            filtered[i][j] += buffered[i-1][j-1] + (2* buffered[i][j-1]) + buffered[i+1][j-1];
-            filtered[i][j] +=  (buffered[i-1][j+1] * -1) - (2 * buffered[i][j+1]) - buffered[i+1][j+1];
+            hor = buffered[i-1][j-1] + (SOBEL_BIAS* buffered[i-1][j]) + buffered[i-1][j+1];
+            hor +=  (buffered[i+1][j-1] * -1) - (SOBEL_BIAS * buffered[i+1][j]) - buffered[i+1][j+1];
+            vert = buffered[i-1][j-1] + (SOBEL_BIAS* buffered[i][j-1]) + buffered[i+1][j-1];
+            vert +=  (buffered[i-1][j+1] * -1) - (SOBEL_BIAS * buffered[i][j+1]) - buffered[i+1][j+1];
+            filtered[i - SOBEL_BUFFER_SIZE][j - SOBEL_BUFFER_SIZE] = sqrt(pow(hor,2) + pow(vert,2));
         }
     }
 
     DestroyIntImage(buffered, (xSize + 2* SOBEL_BUFFER_SIZE), (ySize + 2 * SOBEL_BUFFER_SIZE));
-    normalized = NormalizeIntImage(normalized, xSize, ySize);
-    DestroyIntImage(filtered, xSize, ySize)
+    normalized = NormalizeIntImage(filtered, xSize, ySize);
+    DestroyIntImage(filtered, xSize, ySize);
 
     return normalized;
 
@@ -880,11 +888,11 @@ void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned
         {
             if (img[i][j] > threshold)
             {
-                img[i][j] = 1
+                img[i][j] = 255;
             }
             else
             {
-                img[i][j] = 0
+                img[i][j] = 0;
             }
         }
     }
@@ -894,6 +902,7 @@ void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned
 {
     unsigned i,j;
     float noiseMultiplier;
+    int noisyValue;
 
     srandom(time(NULL));
 
@@ -902,9 +911,62 @@ void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned
         for (j =0; j < xSize; j++)
         {
             noiseMultiplier = (float)(random() - (RAND_MAX / 2))/(RAND_MAX/2);
-            img[i][j] += roundf(noiseMultiplier * intensity);
+            noisyValue = img[i][j] + roundf(noiseMultiplier * intensity);
+            if (noisyValue < 0)
+            {
+                img [i][j] = 0;
+            }
+            else if (noisyValue < UCHAR_MAX)
+            {
+                img[i][j] = noisyValue;
+            }
+            else
+            {
+                img[i][j] = UCHAR_MAX;
+            }
         }
-
     }
+
+
+}
+
+unsigned char ** MakeStandard ( unsigned xSize, unsigned ySize, unsigned tiers)
+{
+    int i, j;
+    int rMax, binSize;
+    int binScale, r;
+    unsigned char ** img; 
+    int p1, p2;
+    unsigned totalSegments;
+
+    totalSegments = tiers + BACKGROUND_SEGMENTS;
+
+    img  =  (unsigned char  **) malloc ( sizeof(unsigned char *) * ySize);
+
+    rMax = (int) sqrt(pow(xSize >> 1,2) + pow(ySize >> 1,2));
+
+    binScale = UCHAR_MAX / totalSegments;
+
+    binSize = rMax / totalSegments; 
+
+
+    for ( i = 0 ; i < ySize; i++)
+    {
+        img[i] = (unsigned char * ) malloc (sizeof(unsigned char ) * xSize);
+        p2 = pow(abs(i-(ySize >> 1)),2);
+        for (j = 0; j < xSize; j ++)
+        {
+            p1 = pow(abs(j-(xSize >> 1)),2);
+            r = sqrt(p1 + p2);
+
+            img[i][j] = UCHAR_MAX - (binScale * (r/binSize));
+            if (img[i][j] <= (BACKGROUND_SEGMENTS * binScale))
+            {
+                img[i][j] = UCHAR_MAX - (binScale * (totalSegments - BACKGROUND_SEGMENTS));
+            }
+        }
+    }
+
+    return img;
 
 }

@@ -36,10 +36,12 @@ void CenterSpectrum ( float ** img, unsigned xSize, unsigned ySize);
 
 void ApplyLowPass ( float ** img, unsigned xSize, unsigned ySize, int cutOff);
 
-float ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySize);
+unsigned char ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySize);
 
-void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, int threshold);
+void MakeBinary ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned threshold);
 
-void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize);
+void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned char intensity);
+
+unsigned char **  MakeStandard (unsigned xSize, unsigned ySize, unsigned tiers);
 
 #endif
