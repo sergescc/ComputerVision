@@ -40,7 +40,7 @@ int main ( int argc, char ** argv)
   	unsigned xSize;                 // NUmber of Horizontal pixels
   	unsigned ySize;
   	unsigned tiers;                 // Number of Vertical Pixels
- 
+
 
   	if (argc <  NUM_ARGS)
   	{
@@ -58,13 +58,15 @@ int main ( int argc, char ** argv)
 
   	img = MakeStandard(xSize, ySize, tiers);
 
-  	printOK("Applying Sobel");
+    ApplyNoise(img, xSize, ySize, 90);
+
+  	printOK("Applying Sobel\n");
 
   	sobel = ApplySobel(img, xSize, ySize);
 
   	printOK("Outputting Image \n");
 
-  	//MakeBinary(sobel, xSize, ySize, 30);
+  	MakeBinary(sobel, xSize, ySize, 30);
 
   	OutputImage ( argv[1], img, xSize, ySize);
 

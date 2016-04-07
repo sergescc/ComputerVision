@@ -34,9 +34,9 @@ PURPOSE:
 #define HEADER_SIZE 20      // Size of BMP header buffer
 #define SINGLE_BYTE 1       // Singel Byte Lenght
 #define FILTER_ORDER 2      // Order of Butterworth Filter
-#define SOBEL_BUFFER_SIZE 1
 #define BACKGROUND_SEGMENTS 3
-#define SOBEL_BIAS 2
+#define SOBEL_FILTER_SIZE 3
+#define MAX_INTENSITY 256
 
 ///////////////////////// Function Protoypes  //////////////////////////////////
 
@@ -820,25 +820,111 @@ unsigned char ** NormalizeIntImage ( int ** img, unsigned xSize, unsigned ySize)
         return newImg;
 }
 
-int ** AddBuffer ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned xBufferSize, unsigned yBufferSize)
+unsigned char ** NormalizeFloatImage ( float ** img, unsigned xSize, unsigned ySize)
+{
+        unsigned i, j;
+        float val;
+        float min = INT_MAX;
+        float max = INT_MIN;
+        unsigned char ** newImg;
+        for ( i = 0; i < ySize; i++)
+        {
+                for ( j = 0; j < xSize ; j += 2)
+                {
+                        val = img[i][j];
+                        if ( val > max)
+                        {
+                                max = val;
+                        }
+                        else if (val < min)
+                        {
+                                min = val;
+                        }
+                }
+        }
+
+        newImg = (unsigned char **) malloc (sizeof(unsigned char *) * ySize);
+        for (i = 0; i < ySize; i ++)
+        {
+            newImg[i] = (unsigned char * ) malloc (sizeof(unsigned char) * xSize);
+            for ( j =0 ; j < xSize; j++)
+            {
+
+                newImg[i][j] = roundf((img[i][j] - min) * (UCHAR_MAX / (max-min)));
+
+            }
+        }
+
+        return newImg;
+}
+
+int ** AddBuffer ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned bfrSize)
 {
     unsigned i,j;
 
     int ** newImage;
 
-    newImage =  (int ** ) malloc(sizeof(int *) * (ySize + (yBufferSize << 1)));
+    newImage =  (int ** ) malloc(sizeof(int *) * (ySize + (bfrSize << 1)));
 
-    for ( i = 0; i < (ySize + (yBufferSize << 1)); i++)
+    for ( i = 0; i < (ySize + (bfrSize << 1)); i++)
     {
-        newImage[i] = (int *) calloc((xSize + (xBufferSize << 1)) , sizeof(int));
-        if (newImage[i] == NULL) printError("Somethindg is Odd");
-        if ((i >= yBufferSize) && (i < (yBufferSize + ySize)))
+        newImage[i] = (int *) malloc(sizeof(int) *(xSize + (bfrSize << 1)));
+
+        if (i < bfrSize)
         {
-            for (j = xBufferSize; j < xSize+xBufferSize; j ++)
+            for ( j = 0; j < (xSize + (bfrSize << 1)); j ++)
             {
-                newImage[i][j] = img[i-yBufferSize][j-xBufferSize];
+                if ( j < bfrSize)
+                {
+                    newImage[i][j] = img[0][0];
+                }
+                else if ( j >= (bfrSize + xSize) )
+                {
+                    newImage[i][j] = img[0][xSize-1];
+                }
+                else
+                {
+                    newImage[i][j] = img[0][j-bfrSize];
+                }
             }
         }
+        else if (i >= (bfrSize + ySize))
+        {
+            for ( j = 0; j < (xSize + (bfrSize << 1)); j ++)
+            {
+                if ( j < bfrSize)
+                {
+                    newImage[i][j] = img[ySize-1][0];
+                }
+                else if ( j >= (bfrSize + xSize) )
+                {
+                    newImage[i][j] = img[ySize-1][xSize-1];
+                }
+                else
+                {
+                    newImage[i][j] = img[ySize-1][j-bfrSize];
+                }
+            }
+        }
+        else
+        {
+            for ( j = 0; j < (xSize + (bfrSize << 1)); j ++)
+            {
+                if ( j < bfrSize)
+                {
+                    newImage[i][j] = img[i-bfrSize][0];
+                }
+                else if ( j >= (bfrSize + xSize) )
+                {
+                    newImage[i][j] = img[i-bfrSize][xSize-1];
+                }
+                else
+                {
+                    newImage[i][j] = img[i-bfrSize][j-bfrSize];
+                }
+            }
+        }
+
     }
 
     return newImage;
@@ -847,32 +933,50 @@ int ** AddBuffer ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigne
 
 unsigned char ** ApplySobel ( unsigned char ** img, unsigned xSize, unsigned ySize)
 {
-    unsigned i, j;
+
+    float verticalSobel[SOBEL_FILTER_SIZE][SOBEL_FILTER_SIZE] =  {{1, 0, -1},
+                                                                  {2, 0, -2},
+                                                                  {1, 0, -1}};
+    float horizontalSobel[SOBEL_FILTER_SIZE][SOBEL_FILTER_SIZE] =  {{ 1, 2, 1},
+                                                                    {0, 0, 0},
+                                                                    {-1,-2,-1}};
+    unsigned i,j;
+    float ** filtered_h;
+    float ** filtered_v;
     int ** filtered;
-    int ** buffered;
     unsigned char ** normalized;
-    int hor, vert;
+    float ** filterVert;
+    float ** filterHoriz;
+    filterVert = (float **) malloc (sizeof(float *)* SOBEL_FILTER_SIZE);
+    filterHoriz = (float **) malloc (sizeof(float *)* SOBEL_FILTER_SIZE);
 
-    buffered = AddBuffer(img, xSize, ySize, SOBEL_BUFFER_SIZE, SOBEL_BUFFER_SIZE);
-    filtered = (int ** ) malloc (sizeof(int * )* ySize);
-
-    for(i = SOBEL_BUFFER_SIZE; i < ySize + SOBEL_BUFFER_SIZE; i ++)
+    for (i = 0; i < SOBEL_FILTER_SIZE; i++)
     {
-        filtered[i -SOBEL_BUFFER_SIZE] = (int *) malloc(sizeof(int) * xSize);
-
-        for (j = SOBEL_BUFFER_SIZE; j < xSize + SOBEL_BUFFER_SIZE; j++)
+        filterVert[i] = (float *) malloc (sizeof(float) * SOBEL_FILTER_SIZE);
+        filterHoriz[i] = (float *) malloc (sizeof(float)* SOBEL_FILTER_SIZE);
+        for (j = 0; j < SOBEL_FILTER_SIZE; j++)
         {
-            hor = buffered[i-1][j-1] + (SOBEL_BIAS* buffered[i-1][j]) + buffered[i-1][j+1];
-            hor +=  (buffered[i+1][j-1] * -1) - (SOBEL_BIAS * buffered[i+1][j]) - buffered[i+1][j+1];
-            vert = buffered[i-1][j-1] + (SOBEL_BIAS* buffered[i][j-1]) + buffered[i+1][j-1];
-            vert +=  (buffered[i-1][j+1] * -1) - (SOBEL_BIAS * buffered[i][j+1]) - buffered[i+1][j+1];
-            filtered[i - SOBEL_BUFFER_SIZE][j - SOBEL_BUFFER_SIZE] = sqrt(pow(hor,2) + pow(vert,2));
+            filterVert[i][j] = verticalSobel[i][j];
+            filterHoriz[i][j] = horizontalSobel[i][j];
         }
     }
+    filtered_h = ApplyConvolution (img, xSize, ySize, filterHoriz, SOBEL_FILTER_SIZE);
 
-    DestroyIntImage(buffered, (xSize + 2* SOBEL_BUFFER_SIZE), (ySize + 2 * SOBEL_BUFFER_SIZE));
+    filtered_v = ApplyConvolution (img, xSize, ySize, filterVert, SOBEL_FILTER_SIZE);
+
+    filtered = (int ** ) malloc (sizeof(int * )* ySize);
+    for (i =0 ; i < ySize; i++)
+    {
+        filtered[i] = (int *) malloc (sizeof (int) * xSize);
+        for (j = 0; j < xSize; j++)
+        {
+            filtered[i][j] = roundf(sqrt(pow(filtered_h[i][j],2) + pow(filtered_v[i][j],2)));
+        }
+    }
     normalized = NormalizeIntImage(filtered, xSize, ySize);
     DestroyIntImage(filtered, xSize, ySize);
+    DestroyFloatImage(filterVert, SOBEL_FILTER_SIZE, SOBEL_FILTER_SIZE);
+    DestroyFloatImage(filterHoriz, SOBEL_FILTER_SIZE, SOBEL_FILTER_SIZE);
 
     return normalized;
 
@@ -935,7 +1039,7 @@ unsigned char ** MakeStandard ( unsigned xSize, unsigned ySize, unsigned tiers)
     int i, j;
     int rMax, binSize;
     int binScale, r;
-    unsigned char ** img; 
+    unsigned char ** img;
     int p1, p2;
     unsigned totalSegments;
 
@@ -947,7 +1051,7 @@ unsigned char ** MakeStandard ( unsigned xSize, unsigned ySize, unsigned tiers)
 
     binScale = UCHAR_MAX / totalSegments;
 
-    binSize = rMax / totalSegments; 
+    binSize = rMax / totalSegments;
 
 
     for ( i = 0 ; i < ySize; i++)
@@ -969,4 +1073,204 @@ unsigned char ** MakeStandard ( unsigned xSize, unsigned ySize, unsigned tiers)
 
     return img;
 
+}
+
+float ** ApplyConvolution ( unsigned char ** img, unsigned xSize, unsigned ySize, float ** filter, unsigned fSize)
+{
+
+    int i,j,k,m, maxOffset;
+    int ** buffered;
+    float ** convoluted;
+    float value;
+
+    maxOffset = (fSize - 1)/2;
+
+    buffered = AddBuffer(img, xSize, ySize, maxOffset);
+
+    convoluted = (float **) malloc ( sizeof(float *)*ySize);
+
+    for (i = maxOffset; i < ySize + maxOffset; i++)
+    {
+        convoluted[i - maxOffset] = (float *) malloc(sizeof(float) * xSize);
+
+
+        for ( j = maxOffset ; j < xSize + maxOffset; j++)
+        {
+            value = 0;
+            for (k = (maxOffset * -1) ; k <= maxOffset; k++)
+            {
+
+                for ( m = (maxOffset * -1); m <=  maxOffset; m++)
+                {
+                    value += buffered[i + k][j + m] * filter[k + maxOffset][m + maxOffset];
+                }
+            }
+            convoluted[i - maxOffset][j - maxOffset] = value;
+
+        }
+
+    }
+
+    DestroyIntImage(buffered,xSize + 2* maxOffset, ySize + 2 * maxOffset);
+
+    return convoluted;
+}
+
+unsigned char ** ApplyGaussian (unsigned char ** img, unsigned xSize, unsigned ySize, unsigned scale)
+{
+    unsigned i,j;
+    float ** gaussFilter;
+    float ** filtered;
+    unsigned char ** normalized;
+    unsigned width;
+
+    width = scale << 1;
+
+    if (width % 2 == 0)
+    {
+        width ++;
+    }
+
+
+    gaussFilter = (float **) malloc (sizeof(float *) * width);
+
+
+    for ( i = 0; i < width; i ++)
+    {
+        gaussFilter[i] =  (float *) malloc (sizeof(float) * width);
+        for ( j = 0; j < width; j ++)
+        {
+            gaussFilter[i][j] =  .5 * M_1_PI * (1/pow(scale,2)) * pow(M_E, (-1 * ((pow(j,2) + pow(i,2))/ (2 * pow(scale,2)))));
+        }
+    }
+
+    filtered = ApplyConvolution(img, xSize, ySize, gaussFilter, width);
+
+    normalized = NormalizeFloatImage(filtered, xSize, ySize);
+
+    DestroyFloatImage(filtered, xSize, ySize);
+    DestroyFloatImage(gaussFilter, width, width);
+
+    return normalized;
+}
+
+
+
+typedef struct ErrorCalculatorArgs
+{
+    unsigned  * threshold;
+    unsigned  * errorArray;
+    pthread_mutex_t * threshold_lock;
+    unsigned char ** img;
+    unsigned char ** standard;
+    unsigned xSize;
+    unsigned ySize;
+}ErrArgs;
+
+void * CalculateErrors ( void * args )
+{
+    ErrArgs * err_a =  args;
+    unsigned threshold;
+    unsigned char ** working;
+
+    pthread_mutex_lock(err_a->threshold_lock);
+    while (err_a <= threshold UCHAR_MAX)
+    {
+        *(err_a->threshold)++;
+        pthread_mutex_unlock(threshold_lock);
+
+        working = CopyImage(err_a->img, err_a->xSize, err_a->ySize);
+
+        MakeBinary(working, xSize, ySize, threshold);
+
+        err_a->errorArray[threshold] = CompareImage(err_a->standard, working, xSize, ySize);
+
+        DestroyImage( working, xSize, ySize);
+
+        pthread_mutex_lock(err_a->threshold_lock);
+
+    }
+
+    pthread_mutex_unlock(err_a->threshold_lock);
+
+    pthread_exit(0);
+
+}
+unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue);
+{
+    unsigned i;
+    unsigned min = UINT_MAX;
+    pthread_t threads[NUM_THREADS];
+    unsigned errorArray[MAX_INTENSITY];
+    pthread_mutex_t threshold_lock;
+    unsigned threshold =0;
+    ErrArgs args;
+    pthread_mutex_init(&threshold_lock, NULL);
+    args->threshold = &threshold;
+    args->errorArray = errorArray;
+    args->threshold_lock = &threshold_lock;
+    args->img = img;
+    args->standard = standard;
+    args->xSize = xSize;
+    args->ySize = ySize;
+
+    for (i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_create(&threads[i],NULL, &CalculateErrors, &args);
+    }
+
+    for ( i = 0; i < NUM_THREADS: i ++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    for [i = 0; i < MAX_INTENSITY; i ++]
+    {
+        if (errorArray[i] < min)
+        {
+            min = errorArray[i];
+            threshold = i;
+        }
+    }
+
+    *(errorValue) = errorArray[threshold];
+}
+
+
+unsigned CompareImage ( unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize)
+{
+    unsigned errors;
+    unsigned i,j;
+
+    errors = 0;
+    for (i = 0; i < ySize; i++)
+    {
+        for (j= 0 ; j < xSize; j ++)
+        {
+            if (img[i][j] != standard[i][j])
+            {
+                errors++;
+            }
+        }
+    }
+
+    return errors;
+}
+
+unsigned char ** CopyImage ( unsigned char ** img, unsigned xSize, unsigned ySize)
+{
+    unsigned char ** copied;
+    unsigned i, j;
+
+    copied = (unsigned char **) malloc (sizeof(unsigned char *)* ySize);
+    for (i = 0; i < ySize; i++)
+    {
+        copied[i] = (unsigned char * ) malloac (sizeof( unsigned char ) * xSize);
+        for (ju=0; j < xSize; j++)
+        {
+            copied[i][j] = img[i][j];
+        }
+    }
+
+    return copied;
 }

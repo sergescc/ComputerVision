@@ -44,4 +44,14 @@ void ApplyNoise ( unsigned char ** img, unsigned xSize, unsigned ySize, unsigned
 
 unsigned char **  MakeStandard (unsigned xSize, unsigned ySize, unsigned tiers);
 
+float ** ApplyConvolution ( unsigned char ** img,unsigned xSize, unsigned ySize, float **filter ,  unsigned size);
+
+unsigned char ** ApplyGaussian (unsigned char ** img, unsigned xSize, unsigned ySize, unsigned scale);
+
+unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue);
+
+unsigned CompareImage ( unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize);
+
+unsigned char ** NormalizeFloatImage ( float ** img, unsigned xSize, unsigned ySize);
+
 #endif
