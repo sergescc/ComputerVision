@@ -37,6 +37,8 @@ PURPOSE:
 #define BACKGROUND_SEGMENTS 3
 #define SOBEL_FILTER_SIZE 3
 #define MAX_INTENSITY 256
+#define BLUR_MAX  2
+#define BLUR_STEP 1
 
 ///////////////////////// Function Protoypes  //////////////////////////////////
 
@@ -1172,20 +1174,28 @@ void * CalculateErrors ( void * args )
     ErrArgs * err_a =  args;
     unsigned threshold;
     unsigned char ** working;
+    unsigned * errorArray = err_a->errorArray;
 
     pthread_mutex_lock(err_a->threshold_lock);
-    while (err_a <= threshold UCHAR_MAX)
+    while (1)
     {
-        *(err_a->threshold)++;
-        pthread_mutex_unlock(threshold_lock);
+        if (*(err_a->threshold) >= UCHAR_MAX)
+        {
+            break;
+        }
+        threshold = *(err_a->threshold);
+        
+        *(err_a->threshold) += 1;
+       
+        pthread_mutex_unlock(err_a->threshold_lock);
 
         working = CopyImage(err_a->img, err_a->xSize, err_a->ySize);
 
-        MakeBinary(working, xSize, ySize, threshold);
+        MakeBinary(working, err_a->xSize, err_a->ySize, threshold);
 
-        err_a->errorArray[threshold] = CompareImage(err_a->standard, working, xSize, ySize);
+        errorArray[threshold]= CompareImage(err_a->standard, working, err_a->xSize, err_a->ySize);
 
-        DestroyImage( working, xSize, ySize);
+        DestroyImage( working, err_a->xSize, err_a->ySize);
 
         pthread_mutex_lock(err_a->threshold_lock);
 
@@ -1196,7 +1206,8 @@ void * CalculateErrors ( void * args )
     pthread_exit(0);
 
 }
-unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue);
+
+unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue)
 {
     unsigned i;
     unsigned min = UINT_MAX;
@@ -1206,25 +1217,25 @@ unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, u
     unsigned threshold =0;
     ErrArgs args;
     pthread_mutex_init(&threshold_lock, NULL);
-    args->threshold = &threshold;
-    args->errorArray = errorArray;
-    args->threshold_lock = &threshold_lock;
-    args->img = img;
-    args->standard = standard;
-    args->xSize = xSize;
-    args->ySize = ySize;
+    args.threshold = &threshold;
+    args.errorArray = errorArray;
+    args.threshold_lock = &threshold_lock;
+    args.img = img;
+    args.standard = standard;
+    args.xSize = xSize;
+    args.ySize = ySize;
 
     for (i = 0; i < NUM_THREADS; i++)
     {
         pthread_create(&threads[i],NULL, &CalculateErrors, &args);
     }
 
-    for ( i = 0; i < NUM_THREADS: i ++)
+    for ( i = 0; i < NUM_THREADS; i ++)
     {
         pthread_join(threads[i], NULL);
     }
 
-    for [i = 0; i < MAX_INTENSITY; i ++]
+    for (i = 0; i < MAX_INTENSITY; i ++)
     {
         if (errorArray[i] < min)
         {
@@ -1233,7 +1244,9 @@ unsigned FindOptimalThreshold(unsigned char ** standard, unsigned char ** img, u
         }
     }
 
-    *(errorValue) = errorArray[threshold];
+    *(errorValue) = min;
+
+    return threshold;
 }
 
 
@@ -1265,12 +1278,139 @@ unsigned char ** CopyImage ( unsigned char ** img, unsigned xSize, unsigned ySiz
     copied = (unsigned char **) malloc (sizeof(unsigned char *)* ySize);
     for (i = 0; i < ySize; i++)
     {
-        copied[i] = (unsigned char * ) malloac (sizeof( unsigned char ) * xSize);
-        for (ju=0; j < xSize; j++)
+        copied[i] = (unsigned char * ) malloc (sizeof( unsigned char ) * xSize);
+        for (j=0; j < xSize; j++)
         {
             copied[i][j] = img[i][j];
         }
     }
 
     return copied;
+}
+typedef struct BlurErrors
+{
+    unsigned  ** errorMatrix;
+    unsigned char ** standard;
+    unsigned char ** img;
+    unsigned xSize;
+    unsigned ySize;
+    pthread_mutex_t * blur_lock;
+    int * blur;
+
+}BErrArgs;
+
+void * CalculateErrorsWithBlur( void * argsIn)
+{
+    unsigned i;
+    BErrArgs * err_a = argsIn;
+    unsigned ** errorMatrix = err_a->errorMatrix;
+    pthread_t threads[NUM_THREADS];
+    pthread_mutex_t threshold_lock;
+    ErrArgs args;
+    pthread_mutex_init(&threshold_lock, NULL);
+    unsigned char ** blurred;
+    unsigned char ** blurredSobel;
+    int blur;
+    unsigned threshold;
+    threshold = 0;
+    args.threshold = &threshold;
+    args.threshold_lock = &threshold_lock;
+    args.standard = err_a->standard;
+    args.xSize = err_a->xSize;
+    args.ySize = err_a->ySize;
+
+    pthread_mutex_lock(err_a->blur_lock);
+    while (1)
+    {
+        threshold = 0;
+        if (*(err_a->blur) >= BLUR_MAX)
+        {
+            break;
+        }
+        blur = *(err_a->blur);
+        *(err_a->blur) += BLUR_STEP;
+
+        args.errorArray = errorMatrix[(blur/BLUR_STEP)- 1];
+
+        pthread_mutex_unlock(err_a->blur_lock);
+
+        blurred = ApplyGaussian(err_a->img , err_a->xSize, err_a->ySize, blur);
+        blurredSobel = ApplySobel(blurred, err_a->xSize, err_a->ySize);
+        args.img = blurredSobel;
+
+        for (i = 0; i < NUM_THREADS; i++)
+        {
+            pthread_create(&threads[i],NULL, &CalculateErrors, &args);
+        }
+
+        for ( i = 0; i < NUM_THREADS; i ++)
+        {
+            pthread_join(threads[i], NULL);
+        }
+
+        DestroyImage(blurred, err_a->xSize, err_a->ySize);
+        DestroyImage(blurredSobel, err_a->xSize, err_a->ySize);
+
+        pthread_mutex_lock(err_a->blur_lock);
+    }
+    pthread_mutex_unlock(err_a->blur_lock);
+    pthread_exit(0);
+
+}
+
+
+unsigned FindOptimalWithBlurThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue, int *blurScale )
+{
+
+
+    unsigned i, j;
+    unsigned min = UINT_MAX;
+    pthread_t threads[NUM_THREADS];
+    unsigned ** errorMatrix;
+    pthread_mutex_t blur_lock;
+    unsigned minThreshold;
+    int blur = BLUR_STEP;
+    BErrArgs args;
+    pthread_mutex_init(&blur_lock, NULL);
+
+    errorMatrix = (unsigned ** ) malloc (sizeof(unsigned *) * (BLUR_MAX/BLUR_STEP));
+    for (i = BLUR_STEP ; i < BLUR_MAX; i += BLUR_STEP)
+    {
+        errorMatrix[(i/BLUR_STEP) - 1] = (unsigned *) malloc (sizeof(unsigned) * MAX_INTENSITY);
+    }
+    args.blur = &blur;
+    args.errorMatrix = errorMatrix;
+    args.blur_lock = &blur_lock;
+    args.standard = standard;
+    args.xSize = xSize;
+    args.ySize = ySize;
+    args.img = img;
+
+    for (i = 0; i < NUM_THREADS; i++)
+    {
+            pthread_create(&threads[i],NULL, &CalculateErrorsWithBlur, &args);
+    }
+
+    for ( i = 0; i < NUM_THREADS; i ++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    for (i = BLUR_STEP ; i < BLUR_MAX; i += BLUR_STEP)
+    {
+        for (j = 0 ; j < MAX_INTENSITY; j ++)
+        {
+            if (errorMatrix[(i/BLUR_STEP) -1 ][j] < min)
+            {
+                min = errorMatrix[(i/BLUR_STEP) -1 ][j];
+                minThreshold = j;
+                blur = i;
+            }
+        }
+    }
+
+    *(errorValue) = min;
+    *(blurScale) = blur;
+
+    return minThreshold;
 }

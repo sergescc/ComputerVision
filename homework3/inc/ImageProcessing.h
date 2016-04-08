@@ -54,4 +54,7 @@ unsigned CompareImage ( unsigned char ** standard, unsigned char ** img, unsigne
 
 unsigned char ** NormalizeFloatImage ( float ** img, unsigned xSize, unsigned ySize);
 
+unsigned char ** CopyImage ( unsigned char ** img, unsigned xSize, unsigned ySize);
+
+unsigned FindOptimalWithBlurThreshold(unsigned char ** standard, unsigned char ** img, unsigned xSize, unsigned ySize, int * errorValue, int *blurScale );
 #endif
